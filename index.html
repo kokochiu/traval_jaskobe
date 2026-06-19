@@ -141,11 +141,13 @@
 
   hr.sep { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
 
-  @media (max-width: 500px) {
+  @media (max-width: 600px) {
     body { padding: 1rem .75rem 3rem; }
     .hero, .day-body { padding: 1.2rem; }
     .day-header { padding: 12px 16px; }
-    .sections { grid-template-columns: 1fr 1fr; }
+    .sections { grid-template-columns: 1fr; }
+    .accom-item { flex-direction: column; gap: 2px; align-items: flex-start; }
+    .accom-price { font-size: 12px; }
   }
 
   a {
