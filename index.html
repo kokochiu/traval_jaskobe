@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🌻米子．鳥取🐯生日黑皮行</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
   :root {
     --blue:   #E6F1FB; --blue-t: #0C447C;
@@ -27,13 +28,48 @@
   }
   .container { max-width: 780px; margin: 0 auto; }
 
+  /* ── Sticky Nav ── */
+  .day-nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 200;
+    background: rgba(247, 246, 243, 0.96);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 1rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    transform: translateY(-100%);
+    transition: transform 0.25s ease;
+  }
+  .day-nav.visible { transform: translateY(0); }
+  .nav-btn {
+    font-size: 12px; font-weight: 500;
+    padding: 5px 12px; border-radius: 20px;
+    text-decoration: none !important;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    background: white;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+  }
+  .nav-btn:hover { opacity: 0.75; }
+  .nav-btn.d1 { background: var(--blue);   color: var(--blue-t);   border-color: #B5D4F4; }
+  .nav-btn.d2 { background: var(--green);  color: var(--green-t);  border-color: #C0DD97; }
+  .nav-btn.d3 { background: var(--amber);  color: var(--amber-t);  border-color: #FAC775; }
+  .nav-btn.d4 { background: var(--purple); color: var(--purple-t); border-color: #CECBF6; }
+  .nav-btn.d5 { background: var(--pink);   color: var(--pink-t);   border-color: #F4C0D1; }
+
   /* ── Hero ── */
   .hero {
     background: white;
     border-radius: 16px;
     border: 1px solid var(--border);
     padding: 2rem 2rem 1.5rem;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
   }
   .hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
   .hero h1 { font-size: 24px; font-weight: 600; letter-spacing: -.3px; }
@@ -46,6 +82,44 @@
   }
   .pill strong { color: var(--text); font-weight: 500; }
 
+  /* ── Countdown ── */
+  .countdown {
+    margin-top: 1rem;
+    padding: 10px 14px;
+    background: var(--gray-bg);
+    border-radius: 10px;
+    font-size: 13px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .countdown-num {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  /* ── Route Map ── */
+  .map-card {
+    background: white;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    padding: 16px 20px 20px;
+    margin-bottom: 1rem;
+  }
+  .map-label {
+    font-size: 11px; font-weight: 600;
+    color: var(--light); letter-spacing: .06em;
+    text-transform: uppercase; margin-bottom: 10px;
+  }
+  #route-map {
+    height: 260px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
   /* ── Day card ── */
   .day {
     background: white;
@@ -53,25 +127,39 @@
     border: 1px solid var(--border);
     margin-bottom: 1rem;
     overflow: hidden;
+    scroll-margin-top: 56px;
   }
   .day-header {
     display: flex; align-items: center; gap: 14px;
     padding: 14px 20px;
     border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
   }
   .day-badge {
     font-size: 13px; font-weight: 600;
     padding: 4px 10px; border-radius: 8px;
-    white-space: nowrap;
+    white-space: nowrap; flex-shrink: 0;
   }
-  .day-title { font-size: 16px; font-weight: 500; flex: 1; }
+  .day-header-info { flex: 1; min-width: 0; }
+  .day-title { font-size: 16px; font-weight: 500; }
   .day-date { font-size: 12px; color: var(--muted); }
   .drive-chip {
     font-size: 12px; padding: 3px 10px;
     background: var(--gray-bg); border-radius: 20px;
-    color: var(--muted); white-space: nowrap;
+    color: var(--muted); white-space: nowrap; flex-shrink: 0;
   }
-  .day-body { padding: 16px 20px; display: grid; gap: 12px; }
+  .toggle-btn {
+    font-size: 14px; color: var(--light);
+    flex-shrink: 0; transition: transform 0.2s;
+    margin-left: 4px;
+  }
+  .day.collapsed .toggle-btn { transform: rotate(-90deg); }
+  .day-body {
+    padding: 16px 20px; display: grid; gap: 12px;
+    transition: none;
+  }
+  .day.collapsed .day-body { display: none; }
 
   /* ── Sections ── */
   .sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
@@ -107,10 +195,7 @@
     font-size: 13px; padding: 5px 10px;
     background: var(--gray-bg); border-radius: 8px;
   }
-  .accom-item.pick {
-    background: var(--purple); 
-    border: 1px solid #C4C0F0;
-  }
+  .accom-item.pick { background: var(--purple); border: 1px solid #C4C0F0; }
   .accom-item.pick .accom-name { color: var(--purple-t); font-weight: 500; }
   .accom-name { color: var(--text); }
   .accom-price { font-size: 12px; color: var(--muted); }
@@ -139,17 +224,6 @@
   .d5 .day-header { background: var(--pink); }
   .d5 .day-badge  { background: #F4C0D1; color: var(--pink-t); }
 
-  hr.sep { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
-
-  @media (max-width: 600px) {
-    body { padding: 1rem .75rem 3rem; }
-    .hero, .day-body { padding: 1.2rem; }
-    .day-header { padding: 12px 16px; }
-    .sections { grid-template-columns: 1fr; }
-    .accom-item { flex-direction: column; gap: 2px; align-items: flex-start; }
-    .accom-price { font-size: 12px; }
-  }
-
   a {
     color: inherit;
     text-decoration: underline;
@@ -157,14 +231,30 @@
     text-underline-offset: 3px;
     transition: text-decoration-color 0.2s;
   }
+  a:hover { text-decoration-color: var(--muted); }
 
-  a:hover {
-    text-decoration-color: var(--muted);
+  @media (max-width: 600px) {
+    body { padding: 1rem .75rem 3rem; }
+    .hero, .map-card, .day-body { padding: 1.2rem; }
+    .day-header { padding: 12px 16px; }
+    .sections { grid-template-columns: 1fr; }
+    .accom-item { flex-direction: column; gap: 2px; align-items: flex-start; }
+    .accom-price { font-size: 12px; }
+    .nav-btn { font-size: 11px; padding: 4px 9px; }
   }
-
 </style>
 </head>
 <body>
+
+<!-- Sticky Nav -->
+<nav class="day-nav" id="dayNav">
+  <a class="nav-btn d1" href="#day1">Day 1</a>
+  <a class="nav-btn d2" href="#day2">Day 2</a>
+  <a class="nav-btn d3" href="#day3">Day 3</a>
+  <a class="nav-btn d4" href="#day4">Day 4</a>
+  <a class="nav-btn d5" href="#day5">Day 5 🎂</a>
+</nav>
+
 <div class="container">
 
 <!-- Hero -->
@@ -182,17 +272,28 @@
     <span class="pill">💴 總車程約 <strong>10 小時</strong></span>
     <span class="pill">🛏️ 皆為下午<strong>3 點</strong>入住，早上<strong>10 點</strong>退房</span>
   </div>
+  <div class="countdown">
+    <span id="countdown-icon">⏳</span>
+    <span id="countdown-text">載入中...</span>
+  </div>
+</div>
+
+<!-- Route Map -->
+<div class="map-card">
+  <div class="map-label">整趟路線</div>
+  <div id="route-map"></div>
 </div>
 
 <!-- Day 1 -->
-<div class="day d1">
-  <div class="day-header">
+<div class="day d1" id="day1">
+  <div class="day-header" onclick="toggleDay(this)">
     <span class="day-badge">Day 1</span>
-    <div>
+    <div class="day-header-info">
       <div class="day-title">境港（水木茂）</div>
       <div class="day-date">6/29 週一　抵達米子 12:00 ／ 租車 14:00</div>
     </div>
     <span class="drive-chip">🚗 1小時</span>
+    <span class="toggle-btn">▾</span>
   </div>
   <div class="day-body">
     <div class="sections">
@@ -207,16 +308,10 @@
       <div class="section">
         <div class="section-label">吃</div>
         <ul>
-          <li>
-            <a href="https://maps.app.goo.gl/rz6jtXvrFbiU78xF7" target="_blank">Hatonova 三光丸 境港</a>
-          </li>
+          <li><a href="https://maps.app.goo.gl/rz6jtXvrFbiU78xF7" target="_blank">Hatonova 三光丸 境港</a></li>
           <li class="sub">松葉蟹🦀、大蛤蠣🦪．營業到15:30，要把握時間。</li>
-          <li>
-            <a href="https://maps.app.goo.gl/aPZvQtFJhXRDkQSX9" target="_blank">北海道迴轉壽司</a>
-          </li>
-          <li>
-            <a href="https://maps.app.goo.gl/sdfuhyHAbMZDCGCGA" target="_blank">燒肉</a>
-          </li>
+          <li><a href="https://maps.app.goo.gl/aPZvQtFJhXRDkQSX9" target="_blank">北海道迴轉壽司</a></li>
+          <li><a href="https://maps.app.goo.gl/sdfuhyHAbMZDCGCGA" target="_blank">燒肉</a></li>
           <li class="sub">fb網友推薦，可能蠻貴。</li>
         </ul>
       </div>
@@ -245,21 +340,22 @@
 </div>
 
 <!-- Day 2 -->
-<div class="day d2">
-  <div class="day-header">
+<div class="day d2" id="day2">
+  <div class="day-header" onclick="toggleDay(this)">
     <span class="day-badge">Day 2</span>
-    <div>
+    <div class="day-header-info">
       <div class="day-title">由良・鳥取（柯南小鎮 → 白兔神社 → 砂丘）</div>
       <div class="day-date">6/30 週二</div>
     </div>
     <span class="drive-chip">🚗 2.5 小時</span>
+    <span class="toggle-btn">▾</span>
   </div>
   <div class="day-body">
     <div class="sections">
       <div class="section">
         <div class="section-label">景點 & 時間估算</div>
         <ul>
-          <li><a href="https://maps.app.goo.gl/dfKddz54CM9XzjLL8" target="_blank">柯南小鎮（由良）</a><span style="color:var(--light);font-size:12px">　1–1.5h</span></li>
+          <li><a href="https://maps.app.goo.gl/dfKddz54CM9XzjLL8" target="_blank">柯南小鎮（由良）</a> <span style="color:var(--light);font-size:12px">　1–1.5h</span></li>
           <li class="sub">停車停青山故事館，但是休館qq沒關係．往由良車站方向走</li>
           <li><a href="https://maps.app.goo.gl/Ky5S7Apg3ZSuktpM8" target="_blank">🐰白兔神社🐰</a> <span style="color:var(--light);font-size:12px">　40min</span></li>
           <li><a href="https://maps.app.goo.gl/1oYdzCmNbxrZxjLCA" target="_blank">鳥取砂丘</a> <span style="color:var(--light);font-size:12px">　1–1.5h</span></li>
@@ -267,24 +363,18 @@
           <li><a href="https://maps.app.goo.gl/imdjdjegmUPw7pig7" target="_blank">砂之美術館</a> <span style="color:var(--light);font-size:12px">　1–1.5h</span></li>
           <li><a href="https://maps.app.goo.gl/BZGtqMnw8VPDnNibA" target="_blank">鳥取沙丘兒童之國</a> <span style="color:var(--light);font-size:12px">　30min</span></li>
         </ul>
-</div>
+      </div>
       <div class="section">
-  <div class="section-label">吃</div>
-  <ul>
-    <li>
-      <a href="https://maps.app.goo.gl/Wm5NwsUkvjbxfCC17" target="_blank">Takahama Café</a>
-    </li>
-    <li class="sub">酷酷木作四邊形建築，有賣漢堡</li>
-    <li>
-      <a href="https://maps.app.goo.gl/ZsT2rJvbZ1DU7r5JA" target="_blank">布丁🍮</a>
-    </li>
-    <li class="sub">只能現金，僅供外帶。邊吹沙邊吃布丁嘻嘻</li>
-    <li>
-      <a href="https://maps.app.goo.gl/ZsT2rJvbZ1DU7r5JA" target="_blank">阿部鳥取堂</a>
-    </li>
-    <li class="sub">🦀螃蟹🦀造型便當</li>
-  </ul>
-</div>
+        <div class="section-label">吃</div>
+        <ul>
+          <li><a href="https://maps.app.goo.gl/Wm5NwsUkvjbxfCC17" target="_blank">Takahama Café</a></li>
+          <li class="sub">酷酷木作四邊形建築，有賣漢堡</li>
+          <li><a href="https://maps.app.goo.gl/ZsT2rJvbZ1DU7r5JA" target="_blank">布丁🍮</a></li>
+          <li class="sub">只能現金，僅供外帶。邊吹沙邊吃布丁嘻嘻</li>
+          <li><a href="https://maps.app.goo.gl/ZsT2rJvbZ1DU7r5JA" target="_blank">阿部鳥取堂</a></li>
+          <li class="sub">🦀螃蟹🦀造型便當</li>
+        </ul>
+      </div>
       <div class="section">
         <div class="section-label">住宿</div>
         <div class="accom-list">
@@ -292,7 +382,7 @@
             <span class="accom-name" style="color:var(--green-t);font-weight:500">
               <a href="https://maps.app.goo.gl/PH2zNJfiq5oNd2LX7" target="_blank">東橫INN</a>
             </span>
-            <span class="accom-price" style="color:var(--green-t)">小小房間，加大雙人床ㄎ</span>
+            <span class="accom-price" style="color:#3D7A10">小小房間，加大雙人床ㄎ</span>
           </div>
         </div>
       </div>
@@ -310,38 +400,27 @@
 </div>
 
 <!-- Day 3 -->
-<div class="day d3">
-  <div class="day-header">
+<div class="day d3" id="day3">
+  <div class="day-header" onclick="toggleDay(this)">
     <span class="day-badge">Day 3</span>
-    <div>
+    <div class="day-header-info">
       <div class="day-title">浦富海岸・大山</div>
       <div class="day-date">7/1 週三</div>
     </div>
     <span class="drive-chip">🚗 2.5 小時</span>
+    <span class="toggle-btn">▾</span>
   </div>
-<div class="day-body">
+  <div class="day-body">
     <div class="sections">
       <div class="section">
         <div class="section-label">景點 & 時間估算</div>
         <ul>
-          <li>
-            <a href="https://yourun1000.com/pleasure-boat-tw/" target="_blank">浦富海岸遊船</a>
-            <span style="color:var(--light);font-size:12px">　1h</span>
-          </li>
+          <li><a href="https://yourun1000.com/pleasure-boat-tw/" target="_blank">浦富海岸遊船</a> <span style="color:var(--light);font-size:12px">　1h</span></li>
           <li class="sub">翡翠藍海水．9:00～15:00(每小時1班)</li>
-          <li>
-            <a href="https://maps.app.goo.gl/25dNSEZPtuAiUHNq9" target="_blank">鍵掛崎觀景台．木谷沢溪流</a>
-            <span style="color:var(--light);font-size:12px">　30 分</span>
-          </li>
+          <li><a href="https://maps.app.goo.gl/25dNSEZPtuAiUHNq9" target="_blank">鍵掛崎觀景台．木谷沢溪流</a> <span style="color:var(--light);font-size:12px">　30 分</span></li>
           <li class="sub">大山山景俯瞰</li>
-          <li>
-            <a href="https://maps.app.goo.gl/Yf4V2wX4ssqrf9HX8" target="_blank">大山 Sky lift</a>
-            <span style="color:var(--light);font-size:12px">　40 分</span>
-          </li>
-          <li>
-            <a href="https://maps.app.goo.gl/ouUpZYZp3LRLkCQf6" target="_blank">大山牧場</a>
-            <span style="color:var(--light);font-size:12px">　1h</span>
-          </li>
+          <li><a href="https://maps.app.goo.gl/Yf4V2wX4ssqrf9HX8" target="_blank">大山 Sky lift</a> <span style="color:var(--light);font-size:12px">　40 分</span></li>
+          <li><a href="https://maps.app.goo.gl/ouUpZYZp3LRLkCQf6" target="_blank">大山牧場</a> <span style="color:var(--light);font-size:12px">　1h</span></li>
         </ul>
       </div>
       <div class="section">
@@ -351,7 +430,7 @@
             <span class="accom-name" style="color:var(--amber-t);font-weight:500">
               <a href="https://maps.app.goo.gl/zKtkaYFguNbhPX4H7" target="_blank">🍖豪華烤肉露營⛺️</a>
             </span>
-            <span class="accom-price" style="color:var(--amber-t)">有加烤肉用具嘻嘻</span>
+            <span class="accom-price" style="color:#9A5C0D">有加烤肉用具嘻嘻</span>
           </div>
         </div>
       </div>
@@ -368,14 +447,15 @@
 </div>
 
 <!-- Day 4 -->
-<div class="day d4">
-  <div class="day-header">
+<div class="day d4" id="day4">
+  <div class="day-header" onclick="toggleDay(this)">
     <span class="day-badge">Day 4</span>
-    <div>
-      <div class="day-title">出雲・松江 🌅 </div>
+    <div class="day-header-info">
+      <div class="day-title">出雲・松江 🌅</div>
       <div class="day-date">7/2 週四</div>
     </div>
     <span class="drive-chip">🚗 2 小時</span>
+    <span class="toggle-btn">▾</span>
   </div>
   <div class="day-body">
     <div class="sections">
@@ -390,20 +470,18 @@
           <li class="sub">小船穿過松江城下町．看天氣或時間決定是否要去</li>
           <li><a href="https://maps.app.goo.gl/BDZVJ9d1STESBo6z6" target="_blank">松江城天守閣</a> <span style="color:var(--light);font-size:12px">　1–1.5h</span></li>
           <li class="sub">或可改其他景點：八重垣神社or由志園</li>
-          <li><a href="https://maps.app.goo.gl/BDZVJ9d1STESBo6z6" target="_blank">宍道湖</a> <span style="color:var(--light);font-size:12px">30min</span></li>
+          <li><a href="https://maps.app.goo.gl/BDZVJ9d1STESBo6z6" target="_blank">宍道湖</a> <span style="color:var(--light);font-size:12px">　30min</span></li>
           <li><a href="https://maps.app.goo.gl/1iDSEg7M95XntHNP8" target="_blank">稻佐海濱夕陽</a> 🌇 <span style="color:var(--light);font-size:12px">　日落 19:30</span></li>
           <li class="sub">日本神話中的神聖海灘</li>
         </ul>
-</div>
+      </div>
       <div class="section">
-          <div class="section-label">吃</div>
-          <ul>
-            <li>
-              <a href="https://maps.app.goo.gl/9Pk759wcMfuSuKbi6" target="_blank">日式豬排</a>
-            </li>
-            <li class="sub">fb網友推薦．營業時間：17:00–21:30</li>
-          </ul>
-        </div>
+        <div class="section-label">吃</div>
+        <ul>
+          <li><a href="https://maps.app.goo.gl/9Pk759wcMfuSuKbi6" target="_blank">日式豬排</a></li>
+          <li class="sub">fb網友推薦．營業時間：17:00–21:30</li>
+        </ul>
+      </div>
       <div class="section">
         <div class="section-label">住宿</div>
         <div class="accom-list">
@@ -411,7 +489,7 @@
             <span class="accom-name" style="color:var(--amber-t);font-weight:500">
               <a href="https://maps.app.goo.gl/ZrAh1i6aj7Rdz3Lo7" target="_blank">出雲超大民宿</a>
             </span>
-            <span class="accom-price" style="color:var(--amber-t)">桑拿嘻嘻嘻♨️ </span>
+            <span class="accom-price" style="color:#9A5C0D">桑拿嘻嘻嘻♨️</span>
           </div>
         </div>
       </div>
@@ -429,23 +507,24 @@
 </div>
 
 <!-- Day 5 -->
-<div class="day d5">
-  <div class="day-header">
+<div class="day d5" id="day5">
+  <div class="day-header" onclick="toggleDay(this)">
     <span class="day-badge">Day 5</span>
-    <div>
+    <div class="day-header-info">
       <div class="day-title">出雲大社・日御崎　🐯🎂</div>
       <div class="day-date">7/3 週五　還車 15:30 ／ 飛機 17:50</div>
     </div>
     <span class="drive-chip">🚗 1.5 小時</span>
+    <span class="toggle-btn">▾</span>
   </div>
   <div class="day-body">
     <div class="sections">
       <div class="section">
-        <div class="section-label">景點& 時間估算</div>
+        <div class="section-label">景點 & 時間估算</div>
         <ul>
-          <li><a href="https://maps.app.goo.gl/obLKtwffasHer8bi8" target="_blank">出雲大社</a> ⛩ <span style="color:var(--light);font-size:12px">1–1.5h</span></li>
+          <li><a href="https://maps.app.goo.gl/obLKtwffasHer8bi8" target="_blank">出雲大社</a> ⛩ <span style="color:var(--light);font-size:12px">　1–1.5h</span></li>
           <li class="sub">早上人少</li>
-          <li><a href="https://maps.app.goo.gl/ydZE6zNaJvz5FPeg9" target="_blank">日御崎大神宮＆燈塔</a> 🏯 <span style="color:var(--light);font-size:12px">45–60 分</span></li>
+          <li><a href="https://maps.app.goo.gl/ydZE6zNaJvz5FPeg9" target="_blank">日御崎大神宮＆燈塔</a> 🏯 <span style="color:var(--light);font-size:12px">　45–60 分</span></li>
           <li class="sub">燈塔 + 海蝕斷崖</li>
           <li>出發往米子還車</li>
         </ul>
@@ -474,6 +553,87 @@
   </div>
 </div>
 
-</div>
+</div><!-- /container -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// ── A. Sticky Nav ──────────────────────────────
+const nav = document.getElementById('dayNav');
+window.addEventListener('scroll', () => {
+  nav.classList.toggle('visible', window.scrollY > 180);
+});
+
+// ── B. Route Map ───────────────────────────────
+const dayColors = ['#378ADD','#639922','#BA7517','#7F77DD','#D4537E'];
+const stops = [
+  { day: 1, label: 'Day 1　境港・皆生',   lat: 35.5466, lng: 133.2304 },
+  { day: 2, label: 'Day 2　由良・鳥取',   lat: 35.5011, lng: 134.2351 },
+  { day: 3, label: 'Day 3　浦富・大山',   lat: 35.3736, lng: 133.5375 },
+  { day: 4, label: 'Day 4　足立・松江・出雲', lat: 35.4014, lng: 132.8200 },
+  { day: 5, label: 'Day 5　出雲大社・日御崎 🎂', lat: 35.4014, lng: 132.6853 },
+];
+
+const map = L.map('route-map', { zoomControl: true, scrollWheelZoom: false });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap',
+  maxZoom: 13,
+}).addTo(map);
+
+// Draw route line
+const latlngs = stops.map(s => [s.lat, s.lng]);
+L.polyline(latlngs, { color: '#B0A8A0', weight: 2, dashArray: '5,6' }).addTo(map);
+
+// Add markers
+stops.forEach((s, i) => {
+  const color = dayColors[i];
+  const icon = L.divIcon({
+    className: '',
+    html: `<div style="
+      background:${color};color:white;
+      border-radius:50%;width:28px;height:28px;
+      display:flex;align-items:center;justify-content:center;
+      font-size:11px;font-weight:700;
+      border:2px solid white;
+      box-shadow:0 1px 4px rgba(0,0,0,0.25);
+    ">${s.day}</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+  L.marker([s.lat, s.lng], { icon })
+    .addTo(map)
+    .bindPopup(`<strong>${s.label}</strong>`, { maxWidth: 180 });
+});
+
+map.fitBounds(latlngs, { padding: [24, 24] });
+
+// ── C. Collapsible Days ────────────────────────
+function toggleDay(header) {
+  const day = header.closest('.day');
+  day.classList.toggle('collapsed');
+}
+
+// ── D. Countdown ───────────────────────────────
+function updateCountdown() {
+  const tripStart = new Date('2026-06-29T00:00:00+09:00');
+  const tripEnd   = new Date('2026-07-03T23:59:00+09:00');
+  const now = new Date();
+  const icon = document.getElementById('countdown-icon');
+  const text = document.getElementById('countdown-text');
+
+  if (now < tripStart) {
+    const days = Math.ceil((tripStart - now) / 86400000);
+    icon.textContent = '⏳';
+    text.innerHTML = `距離出發還有 <span class="countdown-num">${days}</span> 天`;
+  } else if (now <= tripEnd) {
+    const elapsed = Math.floor((now - tripStart) / 86400000) + 1;
+    icon.textContent = '✈️';
+    text.innerHTML = `旅行中！現在是 <span class="countdown-num">Day ${elapsed}</span> / 5`;
+  } else {
+    icon.textContent = '🌻';
+    text.innerHTML = `回憶中的黑皮行，好好珍藏 ✨`;
+  }
+}
+updateCountdown();
+</script>
 </body>
 </html>
